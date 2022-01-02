@@ -1,4 +1,4 @@
-export const USDTAbi = [
+export const ERC20Abi = [
 	{
 		"inputs": [
 			{

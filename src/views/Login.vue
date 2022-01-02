@@ -41,8 +41,11 @@
             <span>{{nowNtfName }}</span>
             <img src="../assets/xiala.png" height="10" width="10">
           </div>
-          <a-select style="width: 140px" default-value="SELECT PAY TOKEN">
-          </a-select>
+          <div class="ntf-search" style="width: 170px;" @click="searchDicshow2"> 
+            <span>{{nowNtfName2 }}</span>
+            <img src="../assets/xiala.png" height="10" width="10">
+          </div>
+          
 
         </div>
         <div class="contact">
@@ -61,17 +64,24 @@
         <div v-if="isLogin" class="detail_container">
           <div class="title">Explore Rent Collections</div>
           <div class="detail_bag" v-if="rentDetails && !_rentLoading">
-            <div class="detail_total">{{ rentDetails.length }} results</div>
+            <div class="detail_total">{{ rentDetails.total }} items</div>
             <div class="main-content">
               <div
-                v-for="(id, index) in rentDetails"
+                v-for="(item, index) in rentDetails"
                 :key="index"
                 class="min-item"
+                v-show="!item.notshow"
               >
                 <img :src="lendImg[index]" />
-                <div class="name">{{ id }}</div>
+                <div class="name">{{ item.id }}</div>
+                <div class="tags">
+                  <div class="tag flex">price：<div>{{item.price}} USDT/s</div></div>
+                  <div class="tag">maxRentTime：<div>{{item.maxRentTime}}</div></div>
+                  <div class="tag flex">rentLock：<div>{{item.rentLock}}</div></div>
+                  <div class="tag">rentTime：<div>{{item.rentTime}}</div></div>
+                </div>
                 <div class="desc">
-                  <a-button class="normal-btn" type="primary" @click="rentItem(id, index)"
+                  <a-button class="normal-btn" type="primary" @click="rentItem(item.id, index)"
                     >Rent</a-button
                   >
                 </div>
@@ -90,7 +100,7 @@
         <div v-if="isLogin" class="detail_container">
           <div class="title">Explore Lend Collections</div>
           <div class="detail_bag" v-if="lendDetails && !_lendLoading">
-            <div class="detail_total">{{ lendDetails.length }} results</div>
+            <div class="detail_total">{{ lendDetails.length }} items</div>
             <div class="main-content">
               <div
                 v-for="(id, index) in lendDetails"
@@ -118,8 +128,9 @@
         </div>
         <div v-if="isLogin" class="detail_container">
           <div class="title">Explore dashboard Collections</div>
+          <div class=""></div>
           <div class="detail_bag" v-if="dashDetails && !_dashLoading">
-            <div class="detail_total">{{ dashDetails.length }} results</div>
+            <div class="detail_total">{{ dashDetails.length }} items</div>
             <div class="main-content">
               <div
                 v-for="(id, index) in dashDetails"
@@ -160,15 +171,15 @@
         <div class="common">
           <div class="item">
             <img src="../assets/toast_1.png">
-            <span>ETH</span>
+            <span>AXS</span>
           </div>
           <div class="item">
             <img src="../assets/toast_2.png">
-            <span>USDC</span>
+            <span>MANA</span>
           </div>
           <div class="item">
             <img src="../assets/toast_3.png">
-            <span>USDT</span>
+            <span>SAND</span>
           </div>
         </div>
 
@@ -183,6 +194,47 @@
         </div>
       </div>
       <div class="x"  @click="_searchDicshow = false">X</div>
+    </div>
+    <!-- search2 弹窗  -->
+    <div class="mask" id="searchMask2" v-if="_searchDicshow2" @click="closeSearch2">
+      <div class="search-form">
+        <div class="title">选择代币</div>
+        <a-input
+          class="input"
+          v-model:value="searchNtf"
+          placeholder="搜索名称或粘贴地址"
+          @change="searchOnChange"
+          />
+        <div class="common-tips">
+          常用代币
+          <img src="../assets/yips.png" height="20" width="20">
+        </div>
+        <div class="common">
+          <div class="item">
+            <img src="../assets/eth.png">
+            <span>ETH</span>
+          </div>
+          <div class="item">
+            <img src="../assets/usdc.png">
+            <span>USDC</span>
+          </div>
+          <div class="item">
+            <img src="../assets/usdt.png">
+            <span>USDT</span>
+          </div>
+        </div>
+
+        <div class="all-ntf">
+          <div v-for="(ntf, index) in ntfsFilterItems2" :key="index" class="item">
+            <img :src="biteBi[index]" >
+            <div class="bag">
+              <div class="name">{{ntf.name}}</div>
+              <div class="symbol">{{ntf.desc}}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="x"  @click="_searchDicshow2 = false">X</div>
     </div>
     <!-- 侧边栏  -->
     <div>
@@ -327,9 +379,10 @@ import { message } from 'ant-design-vue';
 import { getUser, setUser, resetUser } from '../store/user';
 import { ethers } from 'ethers';
 import { LogoutOutlined } from '@ant-design/icons-vue';
-import { axsAbi } from './abi/cryptoSharing';
-import { axsLendAbi } from './abi/ERC9999EnumerableAbi';
-import { USDTAbi } from './abi/ERC20Abi';
+import { cryptoSharing } from './abi/cryptoSharing';
+import { formatDate } from './abi/util';
+import { ERC9999EnumerableAbi } from './abi/ERC9999EnumerableAbi';
+import { ERC20Abi } from './abi/ERC20Abi';
 export default {
   components: {
     LogoutOutlined
@@ -341,10 +394,17 @@ export default {
       user: null,
       sort: '1',
       ntfsFilterItems:[],
+      ntfsFilterItems2:[
+        {name:'ETH',desc:'ETH'},
+        {name:'USDT',desc:'USDT'}
+      ],
       ntfsItems:[],
       searchNtf:'',
       nowNtfName:'',
+      Factory: '0xDa4696D9503C20A2aE212254c27276646744f3d2',
+      nowNtfName2:'SELECT PAY TOKEN',
       _searchDicshow:false,
+      _searchDicshow2:false,
       drawerVisible: false,
       expandIconPosition: 'right',
       provider: null,
@@ -360,14 +420,19 @@ export default {
       rentFormState: {
         rentDay: null
       },
+      biteBi:[
+        require('./../assets/eth.png'),
+        require('./../assets/usdc.png'),
+        require('./../assets/usdt.png'),
+      ],
       sortArr: [
         { value: '1', label: 'PRICE: HIGH TO LOW' },
         { value: '2', label: 'PRICE: LOW TO HIGH' }
       ],
-      axsRentAddress: [
-        '0x15bEFCB648Ff05a79F7c8568975d57b518898284',
-        '0xD5329adD2dC1F13A8a6bc2f91642e85051D5C9A8',
-        '0x130B122201e374E4CC37B77C3D6d12BC5d98d50f'
+      poolAddress: [
+        '0x6Af04c4dd5BC159fDD3C8e3Ef8E5C1766A185a4c', //AXS USDT
+        '0xcB3004c42187c124D6903eD002a949Fc5266A34D', //SAND USDT
+        '0xB563dD0A6790DFBaDbD687988E8628EA32EE44D4'  //MANA USDT
       ],
       rentImg: [
         '../assets/icon1.jpeg',
@@ -378,10 +443,10 @@ export default {
       /* lend 信息  */
 
       rentGameList: null,
-      axsLendNFTAddress: [
-        '0xd12cD2beB0E819f6c4c9f535f5Be8811056c3b4f',
-        '0x1519E71F0dD0AE9E02141822c7b28d5eDEF3A995',
-        '0x6d6053E4E08E3B67306f379736933e1035863025'
+      NFTAddress: [
+        '0x9a8E2c523D76151b4514281FeCe5E28439B3cCFe', //AXS
+        '0x344AC4347cAFAE359962188fBe4aE16f738Cca46', //SAND
+        '0xa0C86f099676e6642CFcB1e52fC95cC6C0E0AC3e' //MANA
       ],
       lendGameList: null,
       lendGameImg: [
@@ -420,6 +485,8 @@ export default {
 
       dashGameList:[],
       dashDetails: null,
+      gamePoolArr:[],
+      gameNFTArr:[],
     });
 
     onMounted(() => {
@@ -499,6 +566,11 @@ export default {
         state._searchDicshow = false;
       }
     }
+    const closeSearch2 = (event) => {
+       if (event.target == document.getElementById('searchMask2')) {
+        state._searchDicshow2 = false;
+      }
+    }
 
     const searchDicshow = () => {
       state._searchDicshow = true;
@@ -506,12 +578,17 @@ export default {
       state.ntfsFilterItems = state.ntfsItems;
     }
 
+    const searchDicshow2 = () => {
+      state._searchDicshow2 = true;
+      state.searchNtf2 = '';
+    }
+
     const confirmSearch = (ntf)=>{
       state.nowNtfName = ntf._name;
       if(state.tab=='lend') {
         showLendGameDeail(ntf, 0);
       }else if(state.tab =='rent') {
-        showRentGameDeail(ntf._address, 0);
+        showRentGameDeail(ntf._poolAddress, 0);
       }else if(state.tab =='dash') {
         //showRentGameDeail(ntf._address, 0);
       }
@@ -523,7 +600,7 @@ export default {
       if(state.tab == 'lend') {
         showLendGameDeail(value._address, option.key);
       }else if(state.tab == 'rent') {
-        showRentGameDeail(value._address, option.key);
+        showRentGameDeail(value._poolAddress, option.key);
       }else if(state.tab == 'dash') {
         //showRentGameDeail(value._address, option.key);
       }
@@ -545,34 +622,35 @@ export default {
       state.rentDetails = null;
       state._rentLoading = true;
       state.rentGameList = null;
-      const gameArr = state.axsRentAddress.map(addr => {
+      const gameArr = state.poolAddress.map(addr => {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const providerSign = provider.getSigner();
-        return new ethers.Contract(addr, axsLendAbi, providerSign);
+        return new ethers.Contract(addr, cryptoSharing, providerSign); // 
       });
       const gameResults = await Promise.all(gameArr);
       for (let i = 0; i < gameResults.length; i++) {
-        gameResults[i]._address = state.axsRentAddress[i];
-        gameResults[i]._name = await gameResults[i].name();
-        gameResults[i]._symbol = await gameResults[i].symbol();
+        gameResults[i]._poolAddress = state.poolAddress[i];
+        //gameResults[i]._name = await gameResults[i].name();
+        //gameResults[i]._symbol = await gameResults[i].symbol();
       }
       state.rentGameList = gameResults;
       state._rentLoading = false;
       state.ntfsItems = gameResults;  //下拉框为所有ntfs
+      state.gamePoolArr = gameResults;   // 保存合约结果
       state.ntfsFilterItems = gameResults;
       state.nowNtfName = gameResults[0]._name;
-      showRentGameDeail(gameResults[0]._address, 0);
-      console.log(gameResults);
+      showRentGameDeail(gameResults[0]._poolAddress, 0);
+      lendInit(true);
     };
-    const showRentGameDeail = async (_address, index) => {
+    const showRentGameDeail = async (_poolAddress, index) => {
       state.rentAddressIndex = index;
       state._rentLoading = true;
       state.rentDetails = null;
       state.lendInfo = {};
       const provider = new ethers.providers.Web3Provider(window.ethereum);
-      console.log(_address);
+      console.log(_poolAddress);
       const providerSign = provider.getSigner();
-      const axsContract = new ethers.Contract(_address, axsAbi, providerSign);
+      const axsContract = new ethers.Contract(_poolAddress, cryptoSharing, providerSign);
       const total = (await axsContract.totalSupply()).toNumber();
       console.log(total);
       const pArr = [];
@@ -582,35 +660,84 @@ export default {
       console.log(pArr);
       const idResults = await Promise.all(pArr);
       console.log(idResults);
-      const ids = idResults.map(item => item.toNumber());
+      const ids = idResults.map(item => {return {id:item.toNumber()}});
       console.log(ids);
+      fetchRentItemInfo(ids);
+    };
+    const fetchRentItemInfo = async (ids)=>{
+       const provider = new ethers.providers.Web3Provider(window.ethereum);
+       const providerSign = provider.getSigner();
+       const axsContract = new ethers.Contract(
+        state.poolAddress[state.rentAddressIndex],
+        cryptoSharing,
+        providerSign
+      );
+      let total = 0;
+      for(let i =0; i<ids.length;i++) {
+        ids[i].price = (await axsContract.getPrice(ids[i].id)).toNumber()
+        ids[i]._maxRentTime = (await axsContract.getMaxRentTime(ids[i].id)).toNumber()
+        if(Number(ids[i]._maxRentTime+'000') < new Date().getTime()) ids[i].notshow = true; //_maxRentTime 最大可租时间小于当前时间，不显示
+        ids[i].maxRentTime = formatDate(new Date(Number(ids[i]._maxRentTime+'000')), 'yyyy-MM-dd hh:mm');
+        ids[i].rentLock = (await axsContract.getRentLock(ids[i].id))
+        ids[i]._rentTime = (await axsContract.getRentTime(ids[i].id)).toNumber()
+        if(Number(ids[i]._rentTime+'000') > new Date().getTime()) ids[i].notshow = true; //_rentTime 别人租到此item的到期时间大于当前时间，不显示
+        ids[i].rentTime = formatDate(new Date(Number(ids[i]._rentTime+'000')), 'yyyy-MM-dd hh:mm');
+        if(!ids[i].notshow) total+=1;
+      }
       state.rentDetails = ids;
+      state.rentDetails.total = total;
       state._rentLoading = false;
+       
     };
     // now
-    const lendInit = async () => {
-      state.lendDetails = null;
-      state._lendLoading = true;
-      state.lendGameList = null;
-      const gameArr = state.axsLendNFTAddress.map(addr => {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        return new ethers.Contract(addr, axsLendAbi, provider);
-      });
-      const gameResults = await Promise.all(gameArr);
+    const lendInit = async (flag) => {
+      if(flag) {
+        const gameArr = state.NFTAddress.map(addr => {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          return new ethers.Contract(addr, ERC9999EnumerableAbi, provider);
+        });
+        const gameResults = await Promise.all(gameArr);
 
-      for (let i = 0; i < gameResults.length; i++) {
-        gameResults[i]._address = state.axsLendNFTAddress[i];
-        gameResults[i]._name = await gameResults[i].name();
-        gameResults[i]._symbol = await gameResults[i].symbol();
-        //gameResults[i]._totalSupply =  (await gameResults[i].totalSupply()).toNumber();
+        for (let i = 0; i < gameResults.length; i++) {
+          gameResults[i]._address = state.NFTAddress[i];
+          gameResults[i]._name = await gameResults[i].name();
+          gameResults[i]._symbol = await gameResults[i].symbol();
+          //gameResults[i]._totalSupply =  (await gameResults[i].totalSupply()).toNumber();
+        }
+        state.nowNtfName = gameResults[0]._name;
+        if(state.gamePoolArr) {
+          state.gamePoolArr.forEach((item,index)=>{
+            state.gamePoolArr[index]._name = gameResults[index]._name;
+            state.gamePoolArr[index]._symbol = gameResults[index]._symbol;
+          })
+        }
+        state.nowNtfName = gameResults[0]._name;
+      }else{
+        state.lendDetails = null;
+        state._lendLoading = true;
+        state.lendGameList = null;
+        const gameArr = state.NFTAddress.map(addr => {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          return new ethers.Contract(addr, ERC9999EnumerableAbi, provider);
+        });
+        const gameResults = await Promise.all(gameArr);
+
+        for (let i = 0; i < gameResults.length; i++) {
+          gameResults[i]._address = state.NFTAddress[i];
+          gameResults[i]._name = await gameResults[i].name();
+          gameResults[i]._symbol = await gameResults[i].symbol();
+          //gameResults[i]._totalSupply =  (await gameResults[i].totalSupply()).toNumber();
+        }
+        state.lendGameList = gameResults;
+        state._lendLoading = false;
+        state.ntfsItems = gameResults;  //下拉框为所有ntfs
+        state.gameNFTArr = gameResults;  // 保存合约结果
+        state.ntfsFilterItems = gameResults;
+        state.nowNtfName = gameResults[0]._name;
+        showLendGameDeail(gameResults[0], 0);
+        console.log(gameResults);
       }
-      state.lendGameList = gameResults;
-      state._lendLoading = false;
-      state.ntfsItems = gameResults;  //下拉框为所有ntfs
-      state.ntfsFilterItems = gameResults;
-      state.nowNtfName = gameResults[0]._name;
-      showLendGameDeail(gameResults[0], 0);
-      console.log(gameResults);
+      
     };
     const showLendGameDeail = async (axsContract, index) => {
       console.log(axsContract);
@@ -659,13 +786,13 @@ export default {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const providerSign = provider.getSigner();
 
-      const axsAddress = state.axsRentAddress[state.lendAddressIndex]; // "0x20366D9EEDFFFA1aF4f7Cf0394D77c772258a8D0";
-      const axsNFTAddress = state.axsLendNFTAddress[state.lendAddressIndex]; //  "0x2f359E67aFe0b0A11D7715bDDe889211C518828f"
+      const axsAddress = state.poolAddress[state.lendAddressIndex]; // "0x20366D9EEDFFFA1aF4f7Cf0394D77c772258a8D0";
+      const axsNFTAddress = state.NFTAddress[state.lendAddressIndex]; //  "0x2f359E67aFe0b0A11D7715bDDe889211C518828f"
 
-      const axsContract = new ethers.Contract(axsAddress, axsAbi, providerSign);
+      const axsContract = new ethers.Contract(axsAddress, cryptoSharing, providerSign);
       const axsNFTContract = new ethers.Contract(
           axsNFTAddress,
-          axsLendAbi,
+          ERC9999EnumerableAbi,
           providerSign
       );
       if(state.axsNFTContractMap[axsNFTAddress]) {
@@ -734,17 +861,15 @@ export default {
       if (!state.rentFormState.rentDay || state.rentFormState.rentDay <= 0)
         return message.error('rent day error!');
       const rentDay = state.rentFormState.rentDay;
-      const USDT = '0x535312676a7867D958826960B82Dc1C6F326FC74';
+      const USDT = '0x6aa76A1fA0Afc3B96a026A8f5c21f7D785163C67';
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const providerSign = provider.getSigner();
-      const USDTContract = new ethers.Contract(USDT, USDTAbi, providerSign);
-      console.log(state.rentAddressIndex);
+      const USDTContract = new ethers.Contract(USDT, ERC20Abi, providerSign);
       const axsContract = new ethers.Contract(
-        state.axsRentAddress[state.rentAddressIndex],
-        axsAbi,
+        state.poolAddress[state.rentAddressIndex],
+        cryptoSharing,
         providerSign
       );
-      console.log(state.rentInfo);
 
       if(state.USDTContractMap[USDT]) {
         console.log(USDT+' USDTContract 已存在');
@@ -764,12 +889,12 @@ export default {
         state.rentInfo[state.tokenId] ={axsContract:axsContract,USDTContract:USDTContract};
       }
 
-      const _price = (await axsContract._prices(state.tokenId)).toNumber();
+      const _price = (await axsContract.getPrice(state.tokenId)).toNumber();
       const price = _price * rentDay * 3600 * 24;
       state.approveRentLoading = true;
-      console.log(state.axsRentAddress[state.rentAddressIndex])
+      console.log(state.poolAddress[state.rentAddressIndex])
       console.log(price)
-      USDTContract.approve(state.axsRentAddress[state.rentAddressIndex], price)
+      USDTContract.approve(state.poolAddress[state.rentAddressIndex], price)
         .then(result => {
           console.log(result);
         })
@@ -844,6 +969,7 @@ export default {
       switchTo,
       handleSortChange,
       searchDicshow,
+      searchDicshow2,
       handleNtfSelectChange,
       showDrawer,
       onClose,
@@ -859,6 +985,7 @@ export default {
       confirmSearch,
       searchOnChange,
       closeSearch,
+      closeSearch2,
       dashInit
     };
   }
@@ -1100,14 +1227,13 @@ export default {
 
         .min-item {
           flex: 0 0 200px;
-          height: 260px;
+          height: 300px;
           border: 1px solid #e5e8eb;
           background-color: rgb(255, 255, 255);
           border-radius: 10px;
           cursor: pointer;
           margin-bottom: 20px;
           box-shadow: #d8e7f5 0px 3px 10px 0px;
-          background-color: #f7f7f7;
 
           &:hover {
             transform: translate(0px, -5px);
@@ -1133,8 +1259,24 @@ export default {
             text-align: center;
           }
 
+          .tags {
+            background-color: #f7f7f7;
+
+            .tag {
+              display: flex;
+              padding-left: 5px;
+              color:#585656;
+              font-weight: 600;
+              font-size: 12px;
+
+              > div {
+                color: #4caf50;
+                font-weight: 500;
+              }
+            }
+          }
+
           .desc {
-            margin: 20px 0px;
             text-align: center;
             display: -webkit-box;
             -webkit-line-clamp: 3;
@@ -1143,6 +1285,7 @@ export default {
             font-weight: 400;
             font-size: 16px;
             color: rgb(112, 122, 131);
+            margin-top: 10px;
 
             button {
               width: 100%;
