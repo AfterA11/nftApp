@@ -7,20 +7,20 @@ export const user = reactive({
 
 export function setUser(obj) {
   Object.assign(user, obj);
-  localStorage.setItem('__account', JSON.stringify(user));
+  sessionStorage.setItem('__account', JSON.stringify(user));
 }
 export function resetUser() {
   for (let x in user) {
     user[x] = null;
   }
-  localStorage.removeItem('__account');
+  sessionStorage.removeItem('__account');
 }
 export function getUser() {
   if(user.accountId) {
-    localStorage.setItem('__account', JSON.stringify(user));
+    sessionStorage.setItem('__account', JSON.stringify(user));
     return user;
   }
-  const obj = localStorage.getItem('__account');
+  const obj = sessionStorage.getItem('__account');
   try {
     if(obj) {
       Object.assign(user, JSON.parse(obj));
@@ -36,6 +36,6 @@ export function getUser() {
 export function updateUser() {
   if(user.accountId) {
     user.authTime = new Date().getTime();
-    localStorage.setItem('__account', JSON.stringify(user));
+    sessionStorage.setItem('__account', JSON.stringify(user));
   }
 }

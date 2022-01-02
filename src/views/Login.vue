@@ -30,22 +30,18 @@
           </div>
           <div
             class="item"
-            v-bind:class="[{ active: tab == 'dashboard' }]"
-            @click="switchTo('dashboard')"
+            v-bind:class="[{ active: tab == 'dash' }]"
+            @click="switchTo('dash')"
           >
             MY DASHBOARD
           </div>
         </div>
-        <div class="select">
-          <a-select style="width: 140px;margin-right: 10px;" :default-value="ntfsItems[0]" @change="handleNtfSelectChange">
-            <a-select-option :value="n" v-for="(n,index) in ntfsItems" :key="index" style="height:52px;">
-              <div class="options">
-                <img src="../assets/lend_game.jpeg" height="10" width="10" />
-                {{n._name}}
-              </div>
-            </a-select-option>
-          </a-select>
-          <a-select style="width: 140px" default-value="sort by">
+        <div class="select" v-if="isLogin">
+          <div class="ntf-search" @click="searchDicshow"> 
+            <span>{{nowNtfName }}</span>
+            <img src="../assets/xiala.png" height="10" width="10">
+          </div>
+          <a-select style="width: 140px" default-value="SELECT PAY TOKEN">
           </a-select>
 
         </div>
@@ -116,6 +112,77 @@
           </div>
         </div>
       </div>
+      <div class="content" v-if="tab == 'dash'">
+        <div class="nologin" v-if="!isLogin">
+          You don't have any NFTs in your dashboard
+        </div>
+        <div v-if="isLogin" class="detail_container">
+          <div class="title">Explore dashboard Collections</div>
+          <div class="detail_bag" v-if="dashDetails && !_dashLoading">
+            <div class="detail_total">{{ dashDetails.length }} results</div>
+            <div class="main-content">
+              <div
+                v-for="(id, index) in dashDetails"
+                :key="index"
+                class="min-item"
+              >
+                <img :src="lendImg[index]" />
+                <div class="name">{{ id }}</div>
+                <div class="desc">
+                  <a-button class="normal-btn" type="primary" @click="settingItem(id, index)"
+                    >setting</a-button
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="text-align: center;padding: 40px 0;" v-if="_dashLoading">
+            <a-spin />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- search 弹窗  -->
+    <div class="mask" id="searchMask" v-if="_searchDicshow" @click="closeSearch">
+      <div class="search-form">
+        <div class="title">选择代币</div>
+        <a-input
+          class="input"
+          v-model:value="searchNtf"
+          placeholder="搜索名称或粘贴地址"
+          @change="searchOnChange"
+          />
+        <div class="common-tips">
+          常用代币
+          <img src="../assets/yips.png" height="20" width="20">
+        </div>
+        <div class="common">
+          <div class="item">
+            <img src="../assets/toast_1.png">
+            <span>ETH</span>
+          </div>
+          <div class="item">
+            <img src="../assets/toast_2.png">
+            <span>USDC</span>
+          </div>
+          <div class="item">
+            <img src="../assets/toast_3.png">
+            <span>USDT</span>
+          </div>
+        </div>
+
+        <div class="all-ntf">
+          <div v-for="(ntf, index) in ntfsFilterItems" :key="index" class="item"  @click="confirmSearch(ntf, index)">
+            <img :src="lendGameImg[index]" >
+            <div class="bag">
+              <div class="name">{{ntf._name}}</div>
+              <div class="symbol">{{ntf._symbol}}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="x"  @click="_searchDicshow = false">X</div>
     </div>
     <!-- 侧边栏  -->
     <div>
@@ -167,11 +234,13 @@
       title="fill rent information"
       style="top: 20px"
       :footer="false"
+      :closable="false"
+      width="400px"
       :confirmLoading="confirmRentLoading"
       @cancel="modalRentVisible = false"
     >
       <a-form :model="rentFormState">
-        <a-form-item label="how many day you want rent" name="rentDay">
+        <a-form-item label="How many day you want rent" name="rentDay">
           <a-input
             v-model:value="rentFormState.rentDay"
             type="number"
@@ -181,6 +250,7 @@
       </a-form>
       <div class="footer">
         <a-button
+          class="normal-btn"
           :disabled="approveRentDisabled"
           type="primary"
           :loading="approveRentLoading"
@@ -188,6 +258,7 @@
           >Approve</a-button
         >
         <a-button
+          class="normal-btn"
           :disabled="confirmRentDisabled"
           type="primary"
           :loading="confirmRentLoading"
@@ -202,6 +273,8 @@
       :visible="modalVisible"
       title="fill lend information"
       style="top: 20px"
+      :closable="false"
+      width="400px"
       :confirmLoading="confirmLendLoading"
       @cancel="modalVisible = false"
       :footer="false"
@@ -215,6 +288,7 @@
             allowClear="false"
             placeholder="Pick a date"
             style="width: 100%"
+            :disabledMinutes="true"
           />
         </a-form-item>
         <a-form-item label="lend how many nft a day" name="lendMoney">
@@ -226,6 +300,7 @@
       </a-form>
       <div class="footer">
         <a-button
+          class="normal-btn"
           :disabled="approveLendDisabled"
           type="primary"
           :loading="approveLendLoading"
@@ -233,6 +308,7 @@
           >Approve</a-button
         >
         <a-button
+          class="normal-btn"
           :disabled="confirmLendDisabled"
           type="primary"
           :loading="confirmLendLoading"
@@ -264,13 +340,18 @@ export default {
       isLogin: false,
       user: null,
       sort: '1',
+      ntfsFilterItems:[],
       ntfsItems:[],
+      searchNtf:'',
+      nowNtfName:'',
+      _searchDicshow:false,
       drawerVisible: false,
       expandIconPosition: 'right',
       provider: null,
       modalVisible: false,
       _lendLoading: false,
       _rentLoading: false,
+      _dashLoading:false,
       lendFormState: {
         lendTime: null,
         lendMoney: null
@@ -336,6 +417,9 @@ export default {
       confirmRentDisabled: false,
       rentInfo: {},
       USDTContractMap:{},
+
+      dashGameList:[],
+      dashDetails: null,
     });
 
     onMounted(() => {
@@ -399,8 +483,40 @@ export default {
         lendInit();
       } else if (state.tab == 'rent') {
         rentInit();
+      } else if (state.tab == 'dash') {
+        dashInit();
       }
     };
+
+    const searchOnChange = ()=>{
+      const arr = state.ntfsItems.filter(item=>{
+        return item._name.indexOf(state.searchNtf) >-1;
+      })
+      state.ntfsFilterItems = arr;
+    }
+    const closeSearch = (event) => {
+       if (event.target == document.getElementById('searchMask')) {
+        state._searchDicshow = false;
+      }
+    }
+
+    const searchDicshow = () => {
+      state._searchDicshow = true;
+      state.searchNtf = '';
+      state.ntfsFilterItems = state.ntfsItems;
+    }
+
+    const confirmSearch = (ntf)=>{
+      state.nowNtfName = ntf._name;
+      if(state.tab=='lend') {
+        showLendGameDeail(ntf, 0);
+      }else if(state.tab =='rent') {
+        showRentGameDeail(ntf._address, 0);
+      }else if(state.tab =='dash') {
+        //showRentGameDeail(ntf._address, 0);
+      }
+      state._searchDicshow = false;
+    }
 
     const handleNtfSelectChange = (value, option) =>{
       console.log('handleNtfSelectChange');
@@ -408,6 +524,8 @@ export default {
         showLendGameDeail(value._address, option.key);
       }else if(state.tab == 'rent') {
         showRentGameDeail(value._address, option.key);
+      }else if(state.tab == 'dash') {
+        //showRentGameDeail(value._address, option.key);
       }
     };
 
@@ -440,8 +558,9 @@ export default {
       }
       state.rentGameList = gameResults;
       state._rentLoading = false;
-
       state.ntfsItems = gameResults;  //下拉框为所有ntfs
+      state.ntfsFilterItems = gameResults;
+      state.nowNtfName = gameResults[0]._name;
       showRentGameDeail(gameResults[0]._address, 0);
       console.log(gameResults);
     };
@@ -488,6 +607,8 @@ export default {
       state.lendGameList = gameResults;
       state._lendLoading = false;
       state.ntfsItems = gameResults;  //下拉框为所有ntfs
+      state.ntfsFilterItems = gameResults;
+      state.nowNtfName = gameResults[0]._name;
       showLendGameDeail(gameResults[0], 0);
       console.log(gameResults);
     };
@@ -698,11 +819,31 @@ export default {
       state.user.accountId = accountId;
     };
 
+    const dashInit = async ()=>{
+      state.dashDetails = null;
+      state._dashLoading = true;
+      state.dashGameList = null;
+
+      //
+
+      state.dashGameList = [];
+      state._dashLoading = false;
+      state.ntfsItems = [];  //下拉框为所有ntfs
+      state.ntfsFilterItems = [];
+      state.nowNtfName = '';
+      showDashboardDeail('', 0);
+    }
+
+    const showDashboardDeail = async ()=> {
+      //state.dashDetails = [1000,1001];
+    }
+
     return {
       ...toRefs(state),
       goTo,
       switchTo,
       handleSortChange,
+      searchDicshow,
       handleNtfSelectChange,
       showDrawer,
       onClose,
@@ -714,7 +855,11 @@ export default {
       confirmRent,
       logOut,
       approveLend,
-      approveRent
+      approveRent,
+      confirmSearch,
+      searchOnChange,
+      closeSearch,
+      dashInit
     };
   }
 };
@@ -785,6 +930,26 @@ export default {
         flex: 0;
         margin-right: 20px;
         display: flex;
+
+        .ntf-search {
+          border: 1px solid #d9d9d9;
+          width: 140px;
+          margin-right: 10px;
+          display: flex;
+          align-items: center;
+          color: rgba(0, 0, 0, 0.85);
+          justify-content: space-between;
+          padding: 0 10px;
+          cursor: pointer;
+
+          > span {
+            flex:1;
+          }
+
+          > img {
+            flex: 0 0 10px;
+          }
+        }
       }
 
       .contact {
@@ -942,6 +1107,7 @@ export default {
           cursor: pointer;
           margin-bottom: 20px;
           box-shadow: #d8e7f5 0px 3px 10px 0px;
+          background-color: #f7f7f7;
 
           &:hover {
             transform: translate(0px, -5px);
@@ -951,7 +1117,8 @@ export default {
           > img {
             width: 100%;
             object-fit: cover;
-            border-radius: 10px;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
           }
 
           .name {
@@ -984,6 +1151,141 @@ export default {
         }
       }
     }
+  }
+}
+.mask {
+  background: rgba(0, 0, 0, 0.2);
+  position: fixed;
+  z-index: 999;
+  height: 100vh;
+  width: 100vw;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  top: 0;
+
+  .search-form {
+    width: 30vw;
+    height: 34vw;
+    transform: translate(-50%,-50%);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    background: #fff;
+    border-radius: 2vw;
+    padding: 2vw;
+
+    .title {
+      height: 5vw;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6vw;
+      font-weight: 500;
+    }
+
+    .input {
+      width: 100%;
+      background: #F0F0F0;
+      border: navajowhite;
+      line-height: 3;
+      border-radius: 10px;
+      height: 3vw;
+    }
+
+    .common-tips {
+      display: flex;
+      align-items: center;
+      font-size: 16px;
+      font-weight: 500;
+      margin-top: 0.4vw;
+
+      >img {
+        height: 14px;
+        width: 14px;
+        margin-left: 2px;
+      }
+
+    }
+
+    .common {
+      display: flex;
+      margin-top: 0.4vw;
+
+      .item {
+        border: 1px solid #F0F0F0;
+        padding: 0px 8px;
+        display: flex;
+        align-items: center;
+        font-size: 16px;
+        border-radius: 5px;
+        margin-right: 4px;
+        font-weight: 500;
+        cursor: pointer;
+
+        > img {
+          height: 20px;
+          width: 20px;
+          border-radius: 10px;
+          margin-right: 6px;
+        }
+      }
+    }
+
+    .all-ntf {
+      display: flex;
+      flex-direction: column;
+      margin-top: 1vw;
+      cursor: pointer;
+
+      .item {
+        display: flex;
+        align-items: center;
+        padding: 5px 0;
+        border-bottom: 1px solid #F0F0F0;
+
+        &:hover {
+          background: #f9f9f9;
+        }
+
+        >img {
+          width: 20px;
+          height: 20px;
+          border-radius: 10px;
+          margin-right: 10px;
+        }
+
+        .bag {
+          .name {
+            font-size: 16px;
+            font-weight: 600;
+          }
+          
+          .symbol {
+            color: #7a7a7a;
+            font-size: 12px;
+          }
+        }
+      }
+
+    }
+  }
+
+  .x {
+    width: 36px;
+    height: 36px;
+    position: absolute;
+    top: 44vw;
+    left: 50%;
+    font-weight: 500;
+    border: 1px solid #ffffff;
+    text-align: center;
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 20px;
+    line-height: 36px;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
   }
 }
 .drawer {
@@ -1051,18 +1353,111 @@ export default {
 
 .footer {
   display: flex;
-  justify-content: end;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   button {
-    margin: 0 10px;
+    width: 240px !important;
+    margin-bottom: 10px;
   }
 }
 
 .normal-btn {
-  background-image: linear-gradient(to right, #4DF75D, #0CA4C4) !important;
+  background-image: linear-gradient(to right, #4DF75D, #0CA4C4);
   border: none  !important;;
-  border-radius: 6px !important;;
-  box-shadow: rgba(65, 231, 112, 30%) 0px 0px 4px 1px !important;
+  border-radius: 4px !important;;
+  box-shadow: rgba(65, 231, 112, 30%) 0px 0px 4px 1px;
   width: 80px !important;
-  height: 26px !important;
+  height: 30px !important;
+
+  &:focus {
+    background-image: linear-gradient(to right, #4DF75D, #0CA4C4);
+    box-shadow: rgba(65, 231, 112, 30%) 0px 0px 4px 1px;
+  }
+
+  &:hover {
+    background-image: linear-gradient(to right, #4DF75D, #0CA4C4);
+    box-shadow: rgba(65, 231, 112, 30%) 0px 0px 4px 1px;
+  }
+}
+
+.ant-btn-primary[disabled].normal-btn {
+  background: #D6D5D5;
+  box-shadow: none !important;
+}
+
+.ant-modal-content {
+  border-radius: 15px !important;
+}
+
+.ant-modal-header {
+  background: #0ca4c4 url('../assets/header_bg.png') no-repeat;
+  background-size: 100% 100%;
+  border-radius: 15px 15px 0 0;
+  height: 120px;
+  border-bottom: none;
+}
+.ant-modal-title {
+  color: #ffffff;
+  text-align: center;
+  font-size: 24px;
+  margin-top: 20px;
+}
+.ant-form-item-label {
+  display: block;
+  width: 80%;
+  margin-left: 10%;
+  text-align: left;
+
+  label {
+    font-weight: 600;
+  }
+}
+.ant-form-item-control-wrapper {
+  display: block;
+  width: 80%;
+  margin-left: 10%;
+
+  input {
+    border-radius: 6px;
+  }
+}
+.ant-input:hover ,.ant-input:focus{
+  border-color: #25c2a2 !important;
+}
+
+.ant-calendar-date {
+  border-radius: 50%;
+  border: none;
+  color: #7C86A2;
+  line-height: 24px;
+}
+.ant-calendar-selected-day .ant-calendar-date {
+  background: linear-gradient(45deg, #0CA4C4, #4DF75D);
+  color: #ffffff;
+}
+.ant-calendar-date-panel,.ant-calendar-month-select,.ant-calendar-year-select {
+  color:#7C86A2;
+}
+.ant-calendar-today .ant-calendar-date {
+  color: #0fa8bf;
+}
+.ant-calendar-input {
+  color: #7C86A2;
+}
+.ant-calendar-footer-btn a {
+  color: #0fa8bf;
+}
+
+.ant-calendar .ant-calendar-ok-btn {
+  background: linear-gradient(to right, #4DF75D, #0CA4C4);
+  border-radius: 4px !important;;
+  box-shadow: rgba(65, 231, 112, 30%) 0px 0px 4px 1px;
+  width: 60px !important;
+  border: none;
+  color: #ffffff;
+}
+.ant-calendar {
+  font-size: 12px;
 }
 </style>
