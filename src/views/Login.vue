@@ -128,21 +128,33 @@
         </div>
         <div v-if="isLogin" class="detail_container">
           <div class="title">Explore dashboard Collections</div>
-          <div class=""></div>
+          <div class="ballet">
+            <div class="info">{{walletProfit}} <span>usdt</span></div>
+            <div class="myer" @click="withDrawOpen">Myre server</div>
+          </div>
+          <div class="dashtab">
+            <div class="mytab" v-bind:class="[{ active: dashtab == 'mylend' }]" @click="switchDashTo('mylend')">my lendNFT</div>
+            <div class="mytab tab2" v-bind:class="[{ active: dashtab == 'myrent' }]" @click="switchDashTo('myrent')">my rentNFT</div>
+          </div>
           <div class="detail_bag" v-if="dashDetails && !_dashLoading">
-            <div class="detail_total">{{ dashDetails.length }} items</div>
+            <div class="detail_total">{{ dashDetails.total }} items</div>
             <div class="main-content">
               <div
-                v-for="(id, index) in dashDetails"
+                v-for="(item, index) in dashDetails"
                 :key="index"
                 class="min-item"
               >
                 <img :src="lendImg[index]" />
-                <div class="name">{{ id }}</div>
+                <div class="name">{{ item.id }}</div>
+                <div class="tags">
+                  <div class="tag flex">price：<div>{{item.price}} USDT/s</div></div>
+                  <div class="tag">maxRentTime：<div>{{item.maxRentTime}}</div></div>
+                  <div class="tag flex">rentLock：<div>{{item.rentLock}}</div></div>
+                  <div class="tag">rentTime：<div>{{item.rentTime}}</div></div>
+                </div>
                 <div class="desc">
-                  <a-button class="normal-btn" type="primary" @click="settingItem(id, index)"
-                    >setting</a-button
-                  >
+                  <a-button class="normal-btn" type="primary" @click="settingItem(item, index)" v-if="dashtab == 'mylend'"
+                    >setting</a-button>
                 </div>
               </div>
             </div>
@@ -369,6 +381,98 @@
         >
       </div>
     </a-modal>
+
+    <!-- dashboar lent setting -->
+    <a-modal
+      :visible="modalLentSettingVisible"
+      title="set RENT NFT"
+      style="top: 20px"
+      :footer="false"
+      :closable="false"
+      width="400px"
+      :confirmLoading="confirmLentSettingLoading"
+      @cancel="modalLentSettingVisible = false"
+    >
+      <a-form :model="lentSettingFormState">
+        <a-form-item label="setPrice" name="price">
+          <a-input
+            v-model:value="lentSettingFormState.price"
+            type="number"
+            placeholder="inputing"
+            style="width: 195px;margin-right: 5px;"
+          />
+          <a-button
+            class="normal-btn"
+            type="primary"
+            @click="setingPrice"
+            >Set</a-button
+          >
+        </a-form-item>
+
+        <a-form-item label="setRentLock" name="lock">
+          <a-input
+            v-model:value="lentSettingFormState.lock"
+            placeholder="true or false"
+            style="width: 195px;margin-right: 5px;"
+          />
+          <a-button
+            class="normal-btn"
+            type="primary"
+            @click="setingLock"
+            >Set</a-button
+          >
+        </a-form-item>
+
+        <a-form-item label="setMaxRentTime" name="maxRentTime">
+          <a-date-picker
+            v-model:value="lentSettingFormState.maxRentTime"
+            show-time
+            type="date"
+            allowClear="false"
+            placeholder="Pick a date"
+            style="width: 195px;margin-right: 5px;"
+            :disabledMinutes="true"
+          />
+          <a-button
+            class="normal-btn"
+            type="primary"
+            @click="setingMaxRentTime"
+            >Set</a-button
+          >
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- withdraw -->
+    <a-modal
+      :visible="modalWithdrawVisible"
+      title="withdraw"
+      style="top: 20px"
+      :footer="false"
+      :closable="false"
+      width="400px"
+      @cancel="modalWithdrawVisible = false"
+    >
+      <a-form :model="withdrawFormState">
+        <a-form-item label="how many you want withdraw" name="number">
+          <a-input
+            v-model:value="withdrawFormState.number"
+            type="number"
+            placeholder="inputing"
+            style="width: 100%"
+          />
+        </a-form-item>
+      </a-form>
+      <div class="footer">
+        <a-button
+          class="normal-btn"
+          type="primary"
+          :loading="withdrawLoading"
+          @click="withdrawConfirm(id, index)"
+          >confirm</a-button
+        >
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -393,6 +497,7 @@ export default {
       isLogin: false,
       user: null,
       sort: '1',
+      dashtab:'mylend',
       ntfsFilterItems:[],
       ntfsFilterItems2:[
         {name:'ETH',desc:'ETH'},
@@ -400,6 +505,7 @@ export default {
       ],
       ntfsItems:[],
       searchNtf:'',
+      walletProfit:0,
       nowNtfName:'',
       Factory: '0xDa4696D9503C20A2aE212254c27276646744f3d2',
       nowNtfName2:'SELECT PAY TOKEN',
@@ -412,6 +518,18 @@ export default {
       _lendLoading: false,
       _rentLoading: false,
       _dashLoading:false,
+      modalLentSettingVisible:false,
+      confirmLentSettingLoading:false,
+      modalWithdrawVisible:false,
+      lentSettingFormState:{
+        price:1,
+        lock:'true',
+        maxRentTime:null
+      },
+      withdrawFormState:{
+        number:1,
+      },
+      withdrawLoading: false,
       lendFormState: {
         lendTime: null,
         lendMoney: null
@@ -487,6 +605,8 @@ export default {
       dashDetails: null,
       gamePoolArr:[],
       gameNFTArr:[],
+      _dashDetailsLoading:false,
+      dashGamepool:null
     });
 
     onMounted(() => {
@@ -505,6 +625,7 @@ export default {
         message.info(`Your account changed to ${accounts[0]}`);
         const accountId = accounts[0];
         state.user.accountId = accountId;
+        console.log(state.user.accountId);
         init();
       }
     }
@@ -590,21 +711,10 @@ export default {
       }else if(state.tab =='rent') {
         showRentGameDeail(ntf._poolAddress, 0);
       }else if(state.tab =='dash') {
-        //showRentGameDeail(ntf._address, 0);
+        showDashGameDeail(ntf, 0);
       }
       state._searchDicshow = false;
     }
-
-    const handleNtfSelectChange = (value, option) =>{
-      console.log('handleNtfSelectChange');
-      if(state.tab == 'lend') {
-        showLendGameDeail(value._address, option.key);
-      }else if(state.tab == 'rent') {
-        showRentGameDeail(value._poolAddress, option.key);
-      }else if(state.tab == 'dash') {
-        //showRentGameDeail(value._address, option.key);
-      }
-    };
 
     const handleSortChange = (value, option) => {
       console.log(value);
@@ -712,6 +822,7 @@ export default {
           })
         }
         state.nowNtfName = gameResults[0]._name;
+        state.gameNFTArr = gameResults;  // 保存合约结果
       }else{
         state.lendDetails = null;
         state._lendLoading = true;
@@ -746,12 +857,9 @@ export default {
       state.lendDetails = null;
       state.lendAddressIndex = index;
       state.lendInfo = {};
-      console.log(axsContract);
-      console.log(state.user.accountId);
       await updateAccount();
       const totalRes = await axsContract.balanceOf(state.user.accountId); // 游戏里有几个物品
       const total = totalRes.toNumber();
-      console.log(total);
       const pArr = [];
       for (let i = 0; i < total; i++) {
         pArr.push(axsContract.tokenOfOwnerByIndex(state.user.accountId, i));
@@ -892,8 +1000,6 @@ export default {
       const _price = (await axsContract.getPrice(state.tokenId)).toNumber();
       const price = _price * rentDay * 3600 * 24;
       state.approveRentLoading = true;
-      console.log(state.poolAddress[state.rentAddressIndex])
-      console.log(price)
       USDTContract.approve(state.poolAddress[state.rentAddressIndex], price)
         .then(result => {
           console.log(result);
@@ -946,31 +1052,150 @@ export default {
 
     const dashInit = async ()=>{
       state.dashDetails = null;
+      showDashGameDeail(state.gamePoolArr[0], 0);
+    }
+
+    const showDashGameDeail = async (contract)=> {
+      await updateAccount();
+      const reserve = (await contract.getReserve(state.user.accountId)).toNumber();
+      console.log(reserve);
+      state.walletProfit = reserve;
+      switchDashTo('mylend');
+    }
+
+    const switchDashTo = async (t)=>{
+      state.dashtab = t;
       state._dashLoading = true;
-      state.dashGameList = null;
+      if(t == 'mylend') {
+        initMylend();
+      }else if(t == 'myrent') {
+        initMyrent();
+      }
+    }
 
-      //
+    const initMylend = async () =>{
+      const index = state.gamePoolArr.findIndex(item=>item._name == state.nowNtfName);
+      const gamepool = state.gamePoolArr[index];
+      state.dashGamepool = gamepool;
+      await updateAccount();
+      const number = (await gamepool.balanceOf(state.user.accountId)).toNumber();
+      const ids = [];
+      for(let i=0;i<number;i++) {
+        const tokenId = (await gamepool.tokenOfOwnerByIndex(state.user.accountId,i)).toNumber();
+        console.log(tokenId);
+        ids.push({id:tokenId});
+      }
 
-      state.dashGameList = [];
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+       const providerSign = provider.getSigner();
+       const axsContract = new ethers.Contract(
+        state.poolAddress[index],
+        cryptoSharing,
+        providerSign
+      );
+      for(let i =0; i<ids.length;i++) {
+        ids[i].price = (await axsContract.getPrice(ids[i].id)).toNumber()
+        ids[i]._maxRentTime = (await axsContract.getMaxRentTime(ids[i].id)).toNumber()
+        ids[i].maxRentTime = formatDate(new Date(Number(ids[i]._maxRentTime+'000')), 'yyyy-MM-dd hh:mm');
+        ids[i].rentLock = (await axsContract.getRentLock(ids[i].id))
+        ids[i]._rentTime = (await axsContract.getRentTime(ids[i].id)).toNumber()
+        ids[i].rentTime = formatDate(new Date(Number(ids[i]._rentTime+'000')), 'yyyy-MM-dd hh:mm');
+      }
+
+      state.dashDetails = ids;
+      state.dashDetails.total = ids.length;
       state._dashLoading = false;
-      state.ntfsItems = [];  //下拉框为所有ntfs
-      state.ntfsFilterItems = [];
-      state.nowNtfName = '';
-      showDashboardDeail('', 0);
+
     }
 
-    const showDashboardDeail = async ()=> {
-      //state.dashDetails = [1000,1001];
+    const initMyrent = async () =>{ // dashboard rent 列表查询lent 信息
+      console.log(state.gameNFTArr);
+      const index = state.gameNFTArr.findIndex(item=>item._name == state.nowNtfName);
+      const gamenft = state.gameNFTArr[index];
+      await updateAccount();
+      const number = (await gamenft.balanceOfUser(state.user.accountId)).toNumber();
+      const ids = [];
+      for(let i=0;i<number;i++) {
+        const tokenId = (await gamenft.tokenOfUserByIndex(state.user.accountId,i)).toNumber();
+        console.log(tokenId);
+        console.log(await gamenft.ownerOf(tokenId));
+        if((await gamenft.ownerOf(tokenId)) == state.gamePoolArr[index]._poolAddress){
+          ids.push({id:tokenId});
+        }
+      }
+      console.log(ids);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const providerSign = provider.getSigner();
+      const axsContract = new ethers.Contract(
+        state.poolAddress[index],
+        cryptoSharing,
+        providerSign
+      );
+      for(let i =0; i<ids.length;i++) {
+        ids[i].price = (await axsContract.getPrice(ids[i].id)).toNumber()
+        ids[i]._maxRentTime = (await axsContract.getMaxRentTime(ids[i].id)).toNumber()
+        ids[i].maxRentTime = formatDate(new Date(Number(ids[i]._maxRentTime+'000')), 'yyyy-MM-dd hh:mm');
+        ids[i].rentLock = (await axsContract.getRentLock(ids[i].id))
+        ids[i]._rentTime = (await axsContract.getRentTime(ids[i].id)).toNumber()
+        ids[i].rentTime = formatDate(new Date(Number(ids[i]._rentTime+'000')), 'yyyy-MM-dd hh:mm');
+      }
+
+      state.dashDetails = ids;
+      state.dashDetails.total = ids.length;
+      state._dashLoading = false;
     }
+
+    const settingItem = async (item)=>{
+      state.tokenId = item.id;
+      state.modalLentSettingVisible = true;
+      state.confirmLentSettingLoading = false;
+    }
+
+    const setingPrice = async ()=>{
+      console.log(state.tokenId)
+      console.log(state.dashGamepool)
+      if(state.lentSettingFormState.price <=0) return message.error('price error!');
+      await state.dashGamepool.setPrice(state.tokenId,state.lentSettingFormState.price);
+    }
+
+    const setingLock = async ()=>{
+      console.log(state.lentSettingFormState.lock);
+      if(state.lentSettingFormState.lock!= 'true' && state.lentSettingFormState.lock!= 'false') return message.error('lock only true or false!');
+      await state.dashGamepool.setRentLock(state.tokenId,state.lentSettingFormState.lock =='true'?true:false);
+    }
+
+    const setingMaxRentTime = async ()=>{
+      console.log(state.lentSettingFormState.maxRentTime);
+      if(!state.lentSettingFormState.maxRentTime) return message.error('maxRentTime error!');
+      await state.dashGamepool.setMaxRentTime(state.tokenId,Math.round(state.lentSettingFormState.maxRentTime/1000));
+    }
+
+    const withDrawOpen = async ()=>{
+      state.modalWithdrawVisible = true;
+      state.withdrawLoading = false;
+    }
+    const withdrawConfirm = async ()=>{
+      const index = state.gamePoolArr.findIndex(item=>item._name == state.nowNtfName);
+      const gamepool = state.gamePoolArr[index];
+      state.withdrawLoading = true;
+      if(!state.withdrawFormState.number || state.withdrawFormState.number>state.walletProfit ||!state.walletProfit) {
+        state.withdrawLoading = false;
+        return  message.error('withdraw input error!');
+      }
+      await gamepool.withdrawBalance(state.withdrawFormState.number);
+      state.modalWithdrawVisible = false;
+      state.withdrawLoading = false;
+    };
+    
 
     return {
       ...toRefs(state),
       goTo,
       switchTo,
+      switchDashTo,
       handleSortChange,
       searchDicshow,
       searchDicshow2,
-      handleNtfSelectChange,
       showDrawer,
       onClose,
       showLendGameDeail,
@@ -986,7 +1211,13 @@ export default {
       searchOnChange,
       closeSearch,
       closeSearch2,
-      dashInit
+      settingItem,
+      dashInit,
+      setingPrice,
+      setingLock,
+      setingMaxRentTime,
+      withDrawOpen,
+      withdrawConfirm
     };
   }
 };
@@ -1116,6 +1347,81 @@ export default {
         min-height: calc(100vh - 250px);
       }
 
+      .ballet {
+        display: flex;
+        margin: 0 10%;
+        margin-top: 10px;
+        border: 1px solid #cbc7c7;
+        border-radius: 6px;
+        padding: 20px 20px;
+
+        .info {
+          flex: 1;
+          text-align: center;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          font-weight: 600;
+          color: #0fa377;
+          font-size: 16px;
+
+          span {
+            margin-left: 5px;
+            font-size: 12px;
+          }
+        }
+
+        .myer {
+          padding: 5px 10px;
+          border: 1px solid rgba(78, 248, 93, 1);
+          border-radius: 5px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          background: linear-gradient(to right, #4DF75D, #0CA4C4);
+          box-shadow: rgba(65, 231, 112, 30%) 0px 0px 4px 1px;
+          border: none;
+          color: #ffffff;
+        }
+      }
+
+
+      .dashtab {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 40px;
+          margin-top: 20px;
+
+        .mytab {
+            height: 100%;
+            border-top-left-radius: 10px;
+            border-bottom-left-radius:10px;
+            border: 1px solid #b5b2b2;
+            line-height: 40px;
+            font-size: 12px;
+            width: 200px;
+            text-align: center;
+            font-weight: 600;
+            cursor: pointer;
+
+            &.tab2 {
+              border-top-right-radius: 10px;
+              border-bottom-right-radius: 10px;
+              border-top-left-radius: 0;
+              border-bottom-left-radius: 0;
+              border-left: none;
+            }
+
+          &.active {
+              background: linear-gradient(to right, #4DF75D, #0CA4C4);
+              border: 1px solid #b5b2b2;
+              border: none;
+              color: #ffffff;
+          }
+        }
+      }
+
       .nologin {
         text-align: center;
         font-weight: 600;
@@ -1227,7 +1533,6 @@ export default {
 
         .min-item {
           flex: 0 0 200px;
-          height: 300px;
           border: 1px solid #e5e8eb;
           background-color: rgb(255, 255, 255);
           border-radius: 10px;
