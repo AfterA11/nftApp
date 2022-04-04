@@ -36,18 +36,7 @@
             MY DASHBOARD
           </div>
         </div>
-        <div class="select" v-if="isLogin">
-          <div class="ntf-search" @click="searchDicshow"> 
-            <span>{{nowNtfName }}</span>
-            <img src="../assets/xiala.png" height="10" width="10">
-          </div>
-          <div class="ntf-search" style="width: 170px;" @click="searchDicshow2"> 
-            <span>{{nowNtfName2 }}</span>
-            <img src="../assets/xiala.png" height="10" width="10">
-          </div>
-          
-
-        </div>
+       <div style="margin-right:20px;">{{user?user.addr : ''}}</div>
         <div class="contact">
           <a-button v-if="!isLogin" class="login" type="primary" @click="goTo"
             >Connect wallet</a-button
@@ -73,15 +62,14 @@
                 v-show="!item.notshow"
               >
                 <img :src="lendImg[index]" />
+                <div style="    position: absolute;top: 5px;width: 100%;text-align: center;">{{item.fromAddress}}</div>
                 <div class="name">{{ item.id }}</div>
                 <div class="tags">
-                  <div class="tag flex">price：<div>{{item.price}} USDT/s</div></div>
+                  <div class="tag flex">price：<div>{{item.price}} FLOW / Day</div></div>
                   <div class="tag">maxRentTime：<div>{{item.maxRentTime}}</div></div>
-                  <div class="tag flex">rentLock：<div>{{item.rentLock}}</div></div>
-                  <div class="tag">rentTime：<div>{{item.rentTime}}</div></div>
                 </div>
                 <div class="desc">
-                  <a-button class="normal-btn" type="primary" @click="rentItem(item.id, index)"
+                  <a-button class="normal-btn" type="primary" @click="rentItem(item)"
                     >Rent</a-button
                   >
                 </div>
@@ -103,16 +91,17 @@
             <div class="detail_total">{{ lendDetails.length }} items</div>
             <div class="main-content">
               <div
-                v-for="(id, index) in lendDetails"
+                v-for="(item, index) in lendDetails"
                 :key="index"
                 class="min-item"
               >
                 <img :src="lendImg[index]" />
-                <div class="name">{{ id }}</div>
+                <div class="name">{{ item.id }}</div>
                 <div class="desc">
-                  <a-button class="normal-btn" type="primary" @click="lendItem(id, index)"
+                  <a-button v-if="!item.desc" class="normal-btn" type="primary" @click="lendItem(item.id)"
                     >Lend</a-button
                   >
+                  <div v-if="item.desc">{{item.desc}} </div>
                 </div>
               </div>
             </div>
@@ -128,10 +117,6 @@
         </div>
         <div v-if="isLogin" class="detail_container">
           <div class="title">Explore dashboard Collections</div>
-          <div class="ballet">
-            <div class="info">{{walletProfit}} <span>usdt</span></div>
-            <div class="myer" @click="withDrawOpen">Myre server</div>
-          </div>
           <div class="dashtab">
             <div class="mytab" v-bind:class="[{ active: dashtab == 'mylend' }]" @click="switchDashTo('mylend')">my lendNFT</div>
             <div class="mytab tab2" v-bind:class="[{ active: dashtab == 'myrent' }]" @click="switchDashTo('myrent')">my rentNFT</div>
@@ -146,15 +131,9 @@
               >
                 <img :src="lendImg[index]" />
                 <div class="name">{{ item.id }}</div>
-                <div class="tags">
-                  <div class="tag flex">price：<div>{{item.price}} USDT/s</div></div>
-                  <div class="tag">maxRentTime：<div>{{item.maxRentTime}}</div></div>
-                  <div class="tag flex">rentLock：<div>{{item.rentLock}}</div></div>
-                  <div class="tag">rentTime：<div>{{item.rentTime}}</div></div>
-                </div>
-                <div class="desc">
-                  <a-button class="normal-btn" type="primary" @click="settingItem(item, index)" v-if="dashtab == 'mylend'"
-                    >setting</a-button>
+                <div class="tags" v-if="item.desc || item.endTime">
+                  <div class="tag flex" v-if="item.desc">{{item.desc}}</div>
+                  <div class="tag flex" v-if="item.endTime">过期时间：<div>{{item.endTime}}</div></div>
                 </div>
               </div>
             </div>
@@ -315,15 +294,6 @@
       <div class="footer">
         <a-button
           class="normal-btn"
-          :disabled="approveRentDisabled"
-          type="primary"
-          :loading="approveRentLoading"
-          @click="approveRent(id, index)"
-          >Approve</a-button
-        >
-        <a-button
-          class="normal-btn"
-          :disabled="confirmRentDisabled"
           type="primary"
           :loading="confirmRentLoading"
           @click="confirmRent(id, index)"
@@ -355,7 +325,7 @@
             :disabledMinutes="true"
           />
         </a-form-item>
-        <a-form-item label="lend how many nft a day" name="lendMoney">
+        <a-form-item label="lend money a day" name="lendMoney">
           <a-input
             v-model:value="lendFormState.lendMoney"
             placeholder="fill nft price"
@@ -365,15 +335,6 @@
       <div class="footer">
         <a-button
           class="normal-btn"
-          :disabled="approveLendDisabled"
-          type="primary"
-          :loading="approveLendLoading"
-          @click="approveLend(id, index)"
-          >Approve</a-button
-        >
-        <a-button
-          class="normal-btn"
-          :disabled="confirmLendDisabled"
           type="primary"
           :loading="confirmLendLoading"
           @click="confirmLend(id, index)"
@@ -478,15 +439,23 @@
 
 <script>
 import { reactive, toRefs, onMounted } from 'vue';
-import detectEthereumProvider from '@metamask/detect-provider';
 import { message } from 'ant-design-vue';
-import { getUser, setUser, resetUser } from '../store/user';
-import { ethers } from 'ethers';
+import {getUser, setUser, resetUser } from '../store/user';
 import { LogoutOutlined } from '@ant-design/icons-vue';
-import { cryptoSharing } from './abi/cryptoSharing';
+import {GET_USEFUL_IDS} from './js/GET_USEFUL_IDS';
+import {GET_IDS_WITH_PRICE} from './js/GET_IDS_WITH_PRICE';
+import {GET_BLOCK} from './js/GET_BLOCK';
+import {RENT} from './js/RENT';
+import {getUser1} from './js/getUser1';
+import {LIST_FOR_SALE} from './js/LIST_FOR_SALE';
+import {getLendIDs} from './js/getLendIDs';
+import {GET_EXPIRED} from './js/GET_EXPIRED';
+
+// import {CREATE_USER_COLLECTION} from './js/CREATE_USER_COLLECTION';
+const limitNum =9998;
+const addressList = ['0x3e36cb2e9c3b4539','0x0721be347a6c778a','0xb096b656ab049551'];
 import { formatDate } from './abi/util';
-import { ERC9999EnumerableAbi } from './abi/ERC9999EnumerableAbi';
-import { ERC20Abi } from './abi/ERC20Abi';
+import * as fcl from "@onflow/fcl"
 export default {
   components: {
     LogoutOutlined
@@ -610,53 +579,25 @@ export default {
     });
 
     onMounted(() => {
-      state.provider = new ethers.providers.Web3Provider(window.ethereum);
-      authUser();
+      fcl.currentUser().subscribe(authUser);
+      fcl.config()
+      .put("accessNode.api", "https://access-testnet.onflow.org")
+      .put("discovery.wallet", "https://fcl-discovery.onflow.org/testnet/authn")
       init();
-      onNetworkChange();
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
     });
-    const onNetworkChange = ()=> {
-
-    };
-    const handleAccountsChanged = (accounts) => {
-      console.log(accounts);
-      if(accounts && accounts.length>0) {
-        message.info(`Your account changed to ${accounts[0]}`);
-        const accountId = accounts[0];
-        state.user.accountId = accountId;
-        console.log(state.user.accountId);
-        init();
-      }
-    }
 
     //const router = useRouter();
     // get started
-    const goTo = async () => {
-      const provider = await detectEthereumProvider();
-      console.log(provider);
-      if (provider) {
-        const accounts = await window.ethereum.request({
-          method: 'eth_requestAccounts'
-        });
-        const accountId = accounts[0];
-        console.log(accountId);
-        setUser({ accountId, authTime: new Date().getTime(), isLogin: true });
-        authUser();
-      } else {
-        message.warning('You should install MetaMask first! ');
-      }
-    };
-
-    const authUser = async () => {
+    const goTo = () => {
+      fcl.authenticate();
+    }
+    const authUser = async(n) => {
       state.user = getUser();
-      console.log('-----authUser--------');
       console.log(state.user);
-      if (!state.user.accountId) {
-        state.user.isLogin = false;
+      if (!n.loggedIn) {
         state.isLogin = false;
       } else {
-        setUser({ authTime: new Date().getTime(), isLogin: true });
+        setUser(n);
         state.isLogin = true;
       }
     };
@@ -666,13 +607,17 @@ export default {
       init();
     };
 
-    const init = () => {
+    const init = async() => {
+      /* let res = await fcl.mutate({cadence: CREATE_USER_COLLECTION,limit:limitNum});
+      console.log(res); */
+
+
       if (state.tab == 'lend') {
         lendInit();
       } else if (state.tab == 'rent') {
         rentInit();
       } else if (state.tab == 'dash') {
-        dashInit();
+        switchDashTo('mylend');
       }
     };
 
@@ -707,11 +652,11 @@ export default {
     const confirmSearch = (ntf)=>{
       state.nowNtfName = ntf._name;
       if(state.tab=='lend') {
-        showLendGameDeail(ntf, 0);
+        console.log('showLendGameDeail');
       }else if(state.tab =='rent') {
-        showRentGameDeail(ntf._poolAddress, 0);
+        console.log('1');
       }else if(state.tab =='dash') {
-        showDashGameDeail(ntf, 0);
+        console.log('showDashGameDeail(ntf, 0);');
       }
       state._searchDicshow = false;
     }
@@ -729,308 +674,131 @@ export default {
     };
 
     const rentInit = async () => {
-      state.rentDetails = null;
+      console.log(state.user);
       state._rentLoading = true;
-      state.rentGameList = null;
-      const gameArr = state.poolAddress.map(addr => {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const providerSign = provider.getSigner();
-        return new ethers.Contract(addr, cryptoSharing, providerSign); // 
-      });
-      const gameResults = await Promise.all(gameArr);
-      for (let i = 0; i < gameResults.length; i++) {
-        gameResults[i]._poolAddress = state.poolAddress[i];
-        //gameResults[i]._name = await gameResults[i].name();
-        //gameResults[i]._symbol = await gameResults[i].symbol();
-      }
-      state.rentGameList = gameResults;
+      state.rentDetails = [];
+      let res1 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(addressList[0],t.Address)]});
+      let res2 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(addressList[1],t.Address)]});
+      let res3 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(addressList[2],t.Address)]});
+      let blockNum= await fcl.query({cadence: GET_BLOCK});
+      console.log(blockNum);
+
+      console.log(res1);
       state._rentLoading = false;
-      state.ntfsItems = gameResults;  //下拉框为所有ntfs
-      state.gamePoolArr = gameResults;   // 保存合约结果
-      state.ntfsFilterItems = gameResults;
-      state.nowNtfName = gameResults[0]._name;
-      showRentGameDeail(gameResults[0]._poolAddress, 0);
-      lendInit(true);
-    };
-    const showRentGameDeail = async (_poolAddress, index) => {
-      state.rentAddressIndex = index;
-      state._rentLoading = true;
-      state.rentDetails = null;
-      state.lendInfo = {};
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      console.log(_poolAddress);
-      const providerSign = provider.getSigner();
-      const axsContract = new ethers.Contract(_poolAddress, cryptoSharing, providerSign);
-      const total = (await axsContract.totalSupply()).toNumber();
-      console.log(total);
-      const pArr = [];
-      for (let i = 0; i < total; i++) {
-        pArr.push(axsContract.tokenByIndex(i));
-      }
-      console.log(pArr);
-      const idResults = await Promise.all(pArr);
-      console.log(idResults);
-      const ids = idResults.map(item => {return {id:item.toNumber()}});
-      console.log(ids);
-      fetchRentItemInfo(ids);
-    };
-    const fetchRentItemInfo = async (ids)=>{
-       const provider = new ethers.providers.Web3Provider(window.ethereum);
-       const providerSign = provider.getSigner();
-       const axsContract = new ethers.Contract(
-        state.poolAddress[state.rentAddressIndex],
-        cryptoSharing,
-        providerSign
-      );
-      let total = 0;
-      for(let i =0; i<ids.length;i++) {
-        ids[i].price = (await axsContract.getPrice(ids[i].id)).toNumber()
-        ids[i]._maxRentTime = (await axsContract.getMaxRentTime(ids[i].id)).toNumber()
-        if(Number(ids[i]._maxRentTime+'000') < new Date().getTime()) ids[i].notshow = true; //_maxRentTime 最大可租时间小于当前时间，不显示
-        ids[i].maxRentTime = formatDate(new Date(Number(ids[i]._maxRentTime+'000')), 'yyyy-MM-dd hh:mm');
-        ids[i].rentLock = (await axsContract.getRentLock(ids[i].id))
-        ids[i]._rentTime = (await axsContract.getRentTime(ids[i].id)).toNumber()
-        if(Number(ids[i]._rentTime+'000') > new Date().getTime()) ids[i].notshow = true; //_rentTime 别人租到此item的到期时间大于当前时间，不显示
-        ids[i].rentTime = formatDate(new Date(Number(ids[i]._rentTime+'000')), 'yyyy-MM-dd hh:mm');
-        if(!ids[i].notshow) total+=1;
-      }
-      state.rentDetails = ids;
-      state.rentDetails.total = total;
-      state._rentLoading = false;
-       
+      Object.keys(res1).forEach(id=>{
+        state.rentDetails.push({
+          id:id,
+          price: Object.keys(res1[id])[0],
+          maxRentTime:formatDate(new Date(Math.round((res1[id][Object.keys(res1[id])[0]] - blockNum)) *1000 +new Date().getTime()), 'yyyy-MM-dd hh:mm'),
+          fromAddress:addressList[0]
+        })
+      })
+      Object.keys(res2).forEach(id=>{
+        state.rentDetails.push({
+          id:id,
+          price: Object.keys(res2[id])[0],
+          maxRentTime:formatDate(new Date(Math.round((res2[id][Object.keys(res2[id])[0]] - blockNum)) *1000 +new Date().getTime()), 'yyyy-MM-dd hh:mm'),
+          fromAddress:addressList[1]
+        })
+      })
+      Object.keys(res3).forEach(id=>{
+        state.rentDetails.push({
+          id:id,
+          price: Object.keys(res3[id])[0],
+          maxRentTime:formatDate(new Date(Math.round((res3[id][Object.keys(res3[id])[0]] - blockNum)) *1000 +new Date().getTime()), 'yyyy-MM-dd hh:mm'),
+          fromAddress:addressList[2]
+        })
+      })
+      console.log(state.rentDetails);
     };
     // now
-    const lendInit = async (flag) => {
-      if(flag) {
-        const gameArr = state.NFTAddress.map(addr => {
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
-          return new ethers.Contract(addr, ERC9999EnumerableAbi, provider);
-        });
-        const gameResults = await Promise.all(gameArr);
-
-        for (let i = 0; i < gameResults.length; i++) {
-          gameResults[i]._address = state.NFTAddress[i];
-          gameResults[i]._name = await gameResults[i].name();
-          gameResults[i]._symbol = await gameResults[i].symbol();
-          //gameResults[i]._totalSupply =  (await gameResults[i].totalSupply()).toNumber();
+    const lendInit = async () => {
+      let res = await fcl.query({cadence: GET_USEFUL_IDS ,args: (arg,t) => [arg(state.user.addr,t.Address)]});
+      let res2 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(state.user.addr,t.Address)]});
+      res2 = Object.keys(res2).map(id=>Number(id));
+      console.log(res);
+      console.log(res2);
+      const arr = [];
+      res.forEach(id=>{
+        if(res2.indexOf(id) > -1) {
+          arr.push({id:id,desc:'已置入市场'})
+        }else{
+          arr.push({id:id})
         }
-        state.nowNtfName = gameResults[0]._name;
-        if(state.gamePoolArr) {
-          state.gamePoolArr.forEach((item,index)=>{
-            state.gamePoolArr[index]._name = gameResults[index]._name;
-            state.gamePoolArr[index]._symbol = gameResults[index]._symbol;
-          })
-        }
-        state.nowNtfName = gameResults[0]._name;
-        state.gameNFTArr = gameResults;  // 保存合约结果
-      }else{
-        state.lendDetails = null;
-        state._lendLoading = true;
-        state.lendGameList = null;
-        const gameArr = state.NFTAddress.map(addr => {
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
-          return new ethers.Contract(addr, ERC9999EnumerableAbi, provider);
-        });
-        const gameResults = await Promise.all(gameArr);
-
-        for (let i = 0; i < gameResults.length; i++) {
-          gameResults[i]._address = state.NFTAddress[i];
-          gameResults[i]._name = await gameResults[i].name();
-          gameResults[i]._symbol = await gameResults[i].symbol();
-          //gameResults[i]._totalSupply =  (await gameResults[i].totalSupply()).toNumber();
-        }
-        state.lendGameList = gameResults;
-        state._lendLoading = false;
-        state.ntfsItems = gameResults;  //下拉框为所有ntfs
-        state.gameNFTArr = gameResults;  // 保存合约结果
-        state.ntfsFilterItems = gameResults;
-        state.nowNtfName = gameResults[0]._name;
-        showLendGameDeail(gameResults[0], 0);
-        console.log(gameResults);
-      }
-      
+      });
+      console.log(arr);
+      state.lendDetails = arr;
     };
-    const showLendGameDeail = async (axsContract, index) => {
-      console.log(axsContract);
-      console.log(index);
-      state._lendLoading = true;
-      state.lendDetails = null;
-      state.lendAddressIndex = index;
-      state.lendInfo = {};
-      await updateAccount();
-      const totalRes = await axsContract.balanceOf(state.user.accountId); // 游戏里有几个物品
-      const total = totalRes.toNumber();
-      const pArr = [];
-      for (let i = 0; i < total; i++) {
-        pArr.push(axsContract.tokenOfOwnerByIndex(state.user.accountId, i));
-      }
-      console.log(pArr);
-      const idResults = await Promise.all(pArr);
-      console.log(idResults);
-      const ids = idResults.map(item => item.toNumber());
-      console.log(ids); //  nft 的 id */
-      state.lendDetails = ids;
-      state._lendLoading = false;
-    };
-    const lendItem = (tokenId) => {
-      console.log(tokenId); // 10002
-      state.tokenId = tokenId;
+    const lendItem = async(id) => {
+      console.log(id); // 10002
+      state.lendInfo = id;
       state.lendFormState.lendTime = null;
       state.lendFormState.lendMoney = 0;
       state.modalVisible = true;
-      state.confirmLendDisabled = true;
-      state.approveLendDisabled = false;
-      state.approveLendLoading = false;
       state.confirmLendLoading = false;
     };
-    const approveLend = async () => {
-      const now = new Date().getTime();
-      const lendTime = state.lendFormState.lendTime.valueOf();
-      if (lendTime <= now)
-        return message.error('lend date must be greater than now!');
-      if (!state.lendFormState.lendMoney)
-        return message.error('price require!');
-      const lendMoney = Math.round(state.lendFormState.lendMoney / 86400) + 1;
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const providerSign = provider.getSigner();
 
-      const axsAddress = state.poolAddress[state.lendAddressIndex]; // "0x20366D9EEDFFFA1aF4f7Cf0394D77c772258a8D0";
-      const axsNFTAddress = state.NFTAddress[state.lendAddressIndex]; //  "0x2f359E67aFe0b0A11D7715bDDe889211C518828f"
-
-      const axsContract = new ethers.Contract(axsAddress, cryptoSharing, providerSign);
-      const axsNFTContract = new ethers.Contract(
-          axsNFTAddress,
-          ERC9999EnumerableAbi,
-          providerSign
-      );
-      if(state.axsNFTContractMap[axsNFTAddress]) {
-        console.log(axsNFTAddress+' axsNFTContract 已存在');
-      }else{
-        const filterFrom = axsNFTContract.filters.Approval(providerSign.address);
-        axsNFTContract.on(filterFrom, (from/* from, to, amount, event */) => {
-          console.log(from);
-          state.approveLendLoading = false;
-          state.approveLendDisabled = true;
-          state.confirmLendDisabled = false;
-          message.success('Approve success, please confirm lend!');
-          state.lendInfo[state.tokenId].tokenId = state.tokenId;
-          state.lendInfo[state.tokenId].lendTime = Math.round(lendTime / 1000);
-          state.lendInfo[state.tokenId].lendMoney = lendMoney;
-        });
-        state.lendInfo[state.tokenId] ={axsContract:axsContract,axsNFTContract:axsNFTContract};
-        state.axsNFTContractMap[axsNFTAddress] = axsNFTContract;
-      }
-      state.approveLendLoading = true;
-      axsNFTContract
-        .approve(axsAddress, state.tokenId)
-        .then(result => {
-          console.log(result);
-        })
-        .catch(err => {
-          console.error(err);
-          state.approveLendLoading = false;
-          state.modalVisible = false;
-          message.error('Approve error!');
-        });
-    };
-
-    const confirmLend = () => {
+    const confirmLend = async() => {
       state.confirmLendLoading = true;
-      state.lendInfo[state.tokenId].axsContract
-        .lendNFT(
-          state.lendInfo[state.tokenId].tokenId,
-          state.lendInfo[state.tokenId].lendTime,
-          state.lendInfo[state.tokenId].lendMoney
-        )
-        .then(res => {
-          console.log(res);
+      console.log(state.lendFormState);
+      const time = state.lendFormState.lendTime.valueOf();
+      const difTime = Math.round((time - new Date().getTime())/1000);
+      console.log(difTime);
+      try {
+        let res1= await fcl.query({cadence: GET_BLOCK});
+        console.log(res1);
+        const expired = difTime + res1;
+        let res2 = await fcl.mutate({cadence: LIST_FOR_SALE,args: (arg,t) => [arg(state.lendInfo,t.UInt64), arg(state.lendFormState.lendMoney,t.UFix64), arg(expired,t.UInt64)],limit:limitNum});
+        console.log(res2);
+        let res3 = await fcl.tx(res2).onceSealed();
+        console.log(res3);
+        if(res3.statusString == 'SEALED') {
+          lendInit();
+          state.modalVisible = false;
+          message.success('Rent success!');
+        }else{
+          state.modalVisible = false;
           state.confirmLendLoading = false;
-          state.modalVisible = false;
-          message.success('lend success!');
-        })
-        .catch(err => {
-          state.modalVisible = false;
-          console.error(err);
-          message.error('lend error!');
-        });
+          message.error('Rent error!');
+        }
+      } catch (error) {
+        console.error(error);
+        state.confirmLendLoading = false;
+      }
     };
 
-    const rentItem = tokenId => {
-      state.tokenId = tokenId;
+    const rentItem = t => {
+      state.rentInfo = t;
       state.rentFormState.rentDay = 1;
       state.modalRentVisible = true;
-      state.confirmRentDisabled = true;
-      state.approveRentDisabled = false;
-      state.approveRentLoading = false;
       state.confirmRentLoading = false;
     };
 
-    const approveRent = async () =>{
-      if (!state.rentFormState.rentDay || state.rentFormState.rentDay <= 0)
-        return message.error('rent day error!');
-      const rentDay = state.rentFormState.rentDay;
-      const USDT = '0x6aa76A1fA0Afc3B96a026A8f5c21f7D785163C67';
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const providerSign = provider.getSigner();
-      const USDTContract = new ethers.Contract(USDT, ERC20Abi, providerSign);
-      const axsContract = new ethers.Contract(
-        state.poolAddress[state.rentAddressIndex],
-        cryptoSharing,
-        providerSign
-      );
-
-      if(state.USDTContractMap[USDT]) {
-        console.log(USDT+' USDTContract 已存在');
-      }else{
-        const filterFrom = USDTContract.filters.Approval(providerSign.address);
-        USDTContract.on(filterFrom, (from/* from, to, amount, event */) => {
-          console.log(from);
-          state.approveRentLoading = false;
-          state.approveRentDisabled = true;
-          state.confirmRentDisabled = false;
-          message.success('Approve success, please confirm rent!');
-          state.rentInfo[state.tokenId].nowtime = Math.floor(new Date().getTime() / 1000) - 60;
-          state.rentInfo[state.tokenId].rentDay = rentDay;
-          state.USDTContractMap[USDT] = USDTContract;
-
-        });
-        state.rentInfo[state.tokenId] ={axsContract:axsContract,USDTContract:USDTContract};
-      }
-
-      const _price = (await axsContract.getPrice(state.tokenId)).toNumber();
-      const price = _price * rentDay * 3600 * 24;
-      state.approveRentLoading = true;
-      USDTContract.approve(state.poolAddress[state.rentAddressIndex], price)
-        .then(result => {
-          console.log(result);
-        })
-        .catch(err => {
-          state.approveLendLoading = false;
-          state.modalRentVisible = false;
-          console.error(err);
-          message.error('approve error!');
-        });
-
-    };
     const confirmRent = async () =>{
-      const time = state.rentInfo[state.tokenId].nowtime + state.rentInfo[state.tokenId].rentDay * 3600 * 24;
-      console.log(state.tokenId)
-      console.log(time)
-      state.confirmRentLoading = true;
-      state.rentInfo[state.tokenId].axsContract
-              .rentNFT(state.tokenId, time)
-              .then(res => {
-                console.log(res);
-                state.confirmRentLoading = false;
-                message.success('rent success!');
-                state.modalRentVisible = false;
-              })
-              .catch(err => {
-                state.confirmRentLoading = false;
-                state.modalRentVisible = false;
-                console.error(err);
-                message.error('rent error!');
-              });
+      console.log(state.rentInfo);
+      try {
+        state.confirmRentLoading = true;
+        let res1= await fcl.query({cadence: GET_BLOCK});
+        const expired = state.rentFormState.rentDay*86400 + res1;
+        console.log(res1);
+        let res2 = await fcl.mutate({cadence: RENT,args: (arg,t) => [arg(Number(state.rentInfo.id),t.UInt64), arg(state.rentInfo.price,t.UFix64), arg(expired,t.UInt64), arg(state.rentInfo.fromAddress,t.Address)],limit:limitNum});
+        console.log(res2);
+        let res3 = await fcl.tx(res2).onceSealed();
+        console.log(res3);
+        if(res3.statusString == 'SEALED') {
+          rentInit();
+          state.modalRentVisible = false;
+          message.success('Rent success!');
+        }else{
+          state.modalRentVisible = false;
+          state.confirmRentLoading = false;
+          message.error('Rent error!');
+        }
+      } catch (error) {
+        console.error(error);
+        state.confirmRentLoading = false;
+        message.error('Rent error!');
+      }
     };
 
 
@@ -1040,28 +808,6 @@ export default {
       state.isLogin = false;
       state.drawerVisible = false;
     };
-
-    const updateAccount = async () => {
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts'
-      });
-      const accountId = accounts[0];
-      console.log(accountId);
-      state.user.accountId = accountId;
-    };
-
-    const dashInit = async ()=>{
-      state.dashDetails = null;
-      showDashGameDeail(state.gamePoolArr[0], 0);
-    }
-
-    const showDashGameDeail = async (contract)=> {
-      await updateAccount();
-      const reserve = (await contract.getReserve(state.user.accountId)).toNumber();
-      console.log(reserve);
-      state.walletProfit = reserve;
-      switchDashTo('mylend');
-    }
 
     const switchDashTo = async (t)=>{
       state.dashtab = t;
@@ -1074,74 +820,56 @@ export default {
     }
 
     const initMylend = async () =>{
-      const index = state.gamePoolArr.findIndex(item=>item._name == state.nowNtfName);
-      const gamepool = state.gamePoolArr[index];
-      state.dashGamepool = gamepool;
-      await updateAccount();
-      const number = (await gamepool.balanceOf(state.user.accountId)).toNumber();
-      const ids = [];
-      for(let i=0;i<number;i++) {
-        const tokenId = (await gamepool.tokenOfOwnerByIndex(state.user.accountId,i)).toNumber();
-        console.log(tokenId);
-        ids.push({id:tokenId});
-      }
+      console.log('initMylend');
+      state._dashLoading = true;
+      let res = await fcl.query({cadence: getLendIDs ,args: (arg,t) => [arg(state.user.addr,t.Address)]});
+      const dashDetails1 = res.map(id=>{
+        return{
+          id: id,
+          desc:'已租出'
+        }
+      });
+      let res2 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(state.user.addr,t.Address)]});
+      console.log(res2);
+      let res3= await fcl.query({cadence: GET_BLOCK});
 
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-       const providerSign = provider.getSigner();
-       const axsContract = new ethers.Contract(
-        state.poolAddress[index],
-        cryptoSharing,
-        providerSign
-      );
-      for(let i =0; i<ids.length;i++) {
-        ids[i].price = (await axsContract.getPrice(ids[i].id)).toNumber()
-        ids[i]._maxRentTime = (await axsContract.getMaxRentTime(ids[i].id)).toNumber()
-        ids[i].maxRentTime = formatDate(new Date(Number(ids[i]._maxRentTime+'000')), 'yyyy-MM-dd hh:mm');
-        ids[i].rentLock = (await axsContract.getRentLock(ids[i].id))
-        ids[i]._rentTime = (await axsContract.getRentTime(ids[i].id)).toNumber()
-        ids[i].rentTime = formatDate(new Date(Number(ids[i]._rentTime+'000')), 'yyyy-MM-dd hh:mm');
-      }
 
-      state.dashDetails = ids;
-      state.dashDetails.total = ids.length;
+      const dashDetails2 = Object.keys(res2).map(id=>{
+        const t = (res2[id][Object.keys(res2[id])[0]] - res3) * 1000 +new Date().getTime();
+        return {id:id,endTime:formatDate(new Date(t), 'yyyy-MM-dd hh:mm')}
+      });
+      state.dashDetails = [...dashDetails1,...dashDetails2];
       state._dashLoading = false;
-
     }
 
     const initMyrent = async () =>{ // dashboard rent 列表查询lent 信息
-      console.log(state.gameNFTArr);
-      const index = state.gameNFTArr.findIndex(item=>item._name == state.nowNtfName);
-      const gamenft = state.gameNFTArr[index];
-      await updateAccount();
-      const number = (await gamenft.balanceOfUser(state.user.accountId)).toNumber();
-      const ids = [];
-      for(let i=0;i<number;i++) {
-        const tokenId = (await gamenft.tokenOfUserByIndex(state.user.accountId,i)).toNumber();
-        console.log(tokenId);
-        console.log(await gamenft.ownerOf(tokenId));
-        if((await gamenft.ownerOf(tokenId)) == state.gamePoolArr[index]._poolAddress){
-          ids.push({id:tokenId});
-        }
-      }
-      console.log(ids);
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const providerSign = provider.getSigner();
-      const axsContract = new ethers.Contract(
-        state.poolAddress[index],
-        cryptoSharing,
-        providerSign
-      );
-      for(let i =0; i<ids.length;i++) {
-        ids[i].price = (await axsContract.getPrice(ids[i].id)).toNumber()
-        ids[i]._maxRentTime = (await axsContract.getMaxRentTime(ids[i].id)).toNumber()
-        ids[i].maxRentTime = formatDate(new Date(Number(ids[i]._maxRentTime+'000')), 'yyyy-MM-dd hh:mm');
-        ids[i].rentLock = (await axsContract.getRentLock(ids[i].id))
-        ids[i]._rentTime = (await axsContract.getRentTime(ids[i].id)).toNumber()
-        ids[i].rentTime = formatDate(new Date(Number(ids[i]._rentTime+'000')), 'yyyy-MM-dd hh:mm');
-      }
+      state._dashLoading = true;
+      let res = await fcl.query({cadence: getUser1 ,args: (arg,t) => [arg(state.user.addr,t.Address)]});
+      console.log(res);
+      const arr= [];
+      Object.keys(res).forEach(key=>{
+        arr.push(...res[key]);
+      });
+      console.log(arr);
 
-      state.dashDetails = ids;
-      state.dashDetails.total = ids.length;
+      state.dashDetails = arr.map(id=>{
+        return {id: id}
+      });
+
+      const proArr = [];
+      state.dashDetails.forEach(item=>{
+        const p = fcl.query({cadence: GET_EXPIRED ,args: (arg,t) => [arg(state.user.addr,t.Address), arg(item.id,t.UInt64)]});
+        proArr.push(p);
+      })
+      const results = await Promise.all(proArr);
+      console.log(results);
+      results.forEach((time,index)=>{
+        const t = new Date().getTime() + time *1000;
+        state.dashDetails[index].endTime =  formatDate(new Date(t), 'yyyy-MM-dd hh:mm');
+      });
+      console.log(state.dashDetails);
+
+      state.dashDetails.total = arr.length;
       state._dashLoading = false;
     }
 
@@ -1198,21 +926,16 @@ export default {
       searchDicshow2,
       showDrawer,
       onClose,
-      showLendGameDeail,
       lendItem,
       confirmLend,
-      showRentGameDeail,
       rentItem,
       confirmRent,
       logOut,
-      approveLend,
-      approveRent,
       confirmSearch,
       searchOnChange,
       closeSearch,
       closeSearch2,
       settingItem,
-      dashInit,
       setingPrice,
       setingLock,
       setingMaxRentTime,
@@ -1539,6 +1262,7 @@ export default {
           cursor: pointer;
           margin-bottom: 20px;
           box-shadow: #d8e7f5 0px 3px 10px 0px;
+          position: relative;
 
           &:hover {
             transform: translate(0px, -5px);
@@ -1566,6 +1290,7 @@ export default {
 
           .tags {
             background-color: #f7f7f7;
+            padding: 10px 0;
 
             .tag {
               display: flex;
@@ -1573,6 +1298,7 @@ export default {
               color:#585656;
               font-weight: 600;
               font-size: 12px;
+              justify-content: center;
 
               > div {
                 color: #4caf50;

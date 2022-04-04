@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@metamask/detect-provider": "^1.2.0",
+    "@onflow/fcl": "0.0.78",
+    "@onflow/types": "0.0.6",
     "ant-design-vue": "^2.1.2",
     "axios": "^0.20.0",
     "better-scroll": "^2.3.0",
