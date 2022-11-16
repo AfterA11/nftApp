@@ -440,7 +440,7 @@
 <script>
 import { reactive, toRefs, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
-import {getUser, setUser, resetUser } from '../store/user';
+import {getUser, setUser } from '../store/user';
 import { LogoutOutlined } from '@ant-design/icons-vue';
 import {GET_USEFUL_IDS} from './js/GET_USEFUL_IDS';
 import {GET_IDS_WITH_PRICE} from './js/GET_IDS_WITH_PRICE';
@@ -611,7 +611,7 @@ export default {
       /* let res = await fcl.mutate({cadence: CREATE_USER_COLLECTION,limit:limitNum});
       console.log(res); */
 
-
+      fcl.currentUser().subscribe(authUser);
       if (state.tab == 'lend') {
         lendInit();
       } else if (state.tab == 'rent') {
@@ -709,6 +709,7 @@ export default {
           fromAddress:addressList[2]
         })
       })
+      console.log(res3);
       console.log(state.rentDetails);
     };
     // now
@@ -803,10 +804,10 @@ export default {
 
 
     const logOut = () => {
-      resetUser();
-      state.user = null;
-      state.isLogin = false;
+      sessionStorage.removeItem('__account');
+      sessionStorage.removeItem('CURRENT_USER');
       state.drawerVisible = false;
+      window.location.reload()
     };
 
     const switchDashTo = async (t)=>{
@@ -1164,7 +1165,7 @@ export default {
       }
 
       .sort {
-        justify-content: end;
+        justify-content: flex-end;
         display: flex;
         padding: 0 40px;
         margin-bottom: 20px;
