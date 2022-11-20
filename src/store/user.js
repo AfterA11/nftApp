@@ -1,7 +1,10 @@
 import { reactive } from 'vue';
 export const user = reactive({
-  name: 'The Wekend',
+  name: 'sherard',
   accountId: null,
+  addr:'',
+  cid:'',
+  loggedIn:false,
   authTime: null
 });
 

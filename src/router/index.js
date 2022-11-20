@@ -5,20 +5,12 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/login'
+      redirect: '/index'
     },
     {
-      path: '/home',
-      name: 'home',
-      component: () => import(/* webpackChunkName: "home" */ '@/views/Home.vue'),
-      meta: {
-        index: 1
-      }
-    },
-    {
-      path: '/login',
-      name: 'login',
-      component: () => import(/* webpackChunkName: "login" */ '@/views/Login.vue'),
+      path: '/index',
+      name: 'index',
+      component: () => import(/* webpackChunkName: "login" */ '@/views/index.vue'),
       meta: {
         index: 1
       }

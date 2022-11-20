@@ -501,7 +501,7 @@ export default {
       withdrawLoading: false,
       lendFormState: {
         lendTime: null,
-        lendMoney: null
+        lendMoney: 1.0
       },
       modalRentVisible: false,
       rentFormState: {
@@ -551,7 +551,13 @@ export default {
         require('../assets/lend_icon_7.jpeg'),
         require('../assets/lend_icon_8.jpeg'),
         require('../assets/lend_icon_9.jpeg'),
-        require('../assets/lend_icon_10.jpeg')
+        require('../assets/lend_icon_10.jpeg'),
+        require('../assets/lend_icon_1.jpeg'),
+        require('../assets/lend_icon_2.jpeg'),
+        require('../assets/lend_icon_3.jpeg'),
+        require('../assets/lend_icon_4.jpeg'),
+        require('../assets/lend_icon_5.jpeg'),
+
       ],
       lendDetails: null,
       rentDetails: null,
@@ -581,19 +587,18 @@ export default {
     onMounted(() => {
       fcl.currentUser().subscribe(authUser);
       fcl.config()
-      .put("accessNode.api", "https://access-testnet.onflow.org")
+      .put("accessNode.api", "https://rest-testnet.onflow.org")
       .put("discovery.wallet", "https://fcl-discovery.onflow.org/testnet/authn")
       init();
     });
 
-    //const router = useRouter();
-    // get started
     const goTo = () => {
       fcl.authenticate();
     }
     const authUser = async(n) => {
       state.user = getUser();
       console.log(state.user);
+
       if (!n.loggedIn) {
         state.isLogin = false;
       } else {
@@ -608,9 +613,6 @@ export default {
     };
 
     const init = async() => {
-      /* let res = await fcl.mutate({cadence: CREATE_USER_COLLECTION,limit:limitNum});
-      console.log(res); */
-
       fcl.currentUser().subscribe(authUser);
       if (state.tab == 'lend') {
         lendInit();
@@ -717,11 +719,9 @@ export default {
       let res = await fcl.query({cadence: GET_USEFUL_IDS ,args: (arg,t) => [arg(state.user.addr,t.Address)]});
       let res2 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(state.user.addr,t.Address)]});
       res2 = Object.keys(res2).map(id=>Number(id));
-      console.log(res);
-      console.log(res2);
       const arr = [];
       res.forEach(id=>{
-        if(res2.indexOf(id) > -1) {
+        if(res2.indexOf(Number(id)) > -1) {
           arr.push({id:id,desc:'已置入市场'})
         }else{
           arr.push({id:id})
@@ -731,10 +731,9 @@ export default {
       state.lendDetails = arr;
     };
     const lendItem = async(id) => {
-      console.log(id); // 10002
       state.lendInfo = id;
       state.lendFormState.lendTime = null;
-      state.lendFormState.lendMoney = 0;
+      state.lendFormState.lendMoney = 1.0;
       state.modalVisible = true;
       state.confirmLendLoading = false;
     };
@@ -748,7 +747,8 @@ export default {
       try {
         let res1= await fcl.query({cadence: GET_BLOCK});
         console.log(res1);
-        const expired = difTime + res1;
+        const expired = difTime + Number(res1);
+        console.log({cadence: LIST_FOR_SALE,args: (arg,t) => [arg(state.lendInfo,t.UInt64), arg(state.lendFormState.lendMoney,t.UFix64), arg(expired,t.UInt64)],limit:limitNum});
         let res2 = await fcl.mutate({cadence: LIST_FOR_SALE,args: (arg,t) => [arg(state.lendInfo,t.UInt64), arg(state.lendFormState.lendMoney,t.UFix64), arg(expired,t.UInt64)],limit:limitNum});
         console.log(res2);
         let res3 = await fcl.tx(res2).onceSealed();
@@ -780,8 +780,9 @@ export default {
       try {
         state.confirmRentLoading = true;
         let res1= await fcl.query({cadence: GET_BLOCK});
-        const expired = state.rentFormState.rentDay*86400 + res1;
+        const expired = Number(state.rentFormState.rentDay)*86400 + Number(res1);
         console.log(res1);
+        console.log('expired:'+expired);
         let res2 = await fcl.mutate({cadence: RENT,args: (arg,t) => [arg(Number(state.rentInfo.id),t.UInt64), arg(state.rentInfo.price,t.UFix64), arg(expired,t.UInt64), arg(state.rentInfo.fromAddress,t.Address)],limit:limitNum});
         console.log(res2);
         let res3 = await fcl.tx(res2).onceSealed();
