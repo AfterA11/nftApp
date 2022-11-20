@@ -675,45 +675,6 @@ export default {
       state.drawerVisible = false;
     };
 
-    const rentInit = async () => {
-      console.log(state.user);
-      state._rentLoading = true;
-      state.rentDetails = [];
-      let res1 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(addressList[0],t.Address)]});
-      let res2 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(addressList[1],t.Address)]});
-      let res3 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(addressList[2],t.Address)]});
-      let blockNum= await fcl.query({cadence: GET_BLOCK});
-      console.log(blockNum);
-
-      console.log(res1);
-      state._rentLoading = false;
-      Object.keys(res1).forEach(id=>{
-        state.rentDetails.push({
-          id:id,
-          price: Object.keys(res1[id])[0],
-          maxRentTime:formatDate(new Date(Math.round((res1[id][Object.keys(res1[id])[0]] - blockNum)) *1000 +new Date().getTime()), 'yyyy-MM-dd hh:mm'),
-          fromAddress:addressList[0]
-        })
-      })
-      Object.keys(res2).forEach(id=>{
-        state.rentDetails.push({
-          id:id,
-          price: Object.keys(res2[id])[0],
-          maxRentTime:formatDate(new Date(Math.round((res2[id][Object.keys(res2[id])[0]] - blockNum)) *1000 +new Date().getTime()), 'yyyy-MM-dd hh:mm'),
-          fromAddress:addressList[1]
-        })
-      })
-      Object.keys(res3).forEach(id=>{
-        state.rentDetails.push({
-          id:id,
-          price: Object.keys(res3[id])[0],
-          maxRentTime:formatDate(new Date(Math.round((res3[id][Object.keys(res3[id])[0]] - blockNum)) *1000 +new Date().getTime()), 'yyyy-MM-dd hh:mm'),
-          fromAddress:addressList[2]
-        })
-      })
-      console.log(res3);
-      console.log(state.rentDetails);
-    };
     // now
     const lendInit = async () => {
       let res = await fcl.query({cadence: GET_USEFUL_IDS ,args: (arg,t) => [arg(state.user.addr,t.Address)]});
@@ -749,7 +710,7 @@ export default {
         console.log(res1);
         const expired = difTime + Number(res1);
         console.log({cadence: LIST_FOR_SALE,args: (arg,t) => [arg(state.lendInfo,t.UInt64), arg(state.lendFormState.lendMoney,t.UFix64), arg(expired,t.UInt64)],limit:limitNum});
-        let res2 = await fcl.mutate({cadence: LIST_FOR_SALE,args: (arg,t) => [arg(state.lendInfo,t.UInt64), arg(state.lendFormState.lendMoney,t.UFix64), arg(expired,t.UInt64)],limit:limitNum});
+        let res2 = await fcl.mutate({cadence: LIST_FOR_SALE,args: (arg,t) => [arg(state.lendInfo,t.UInt64), arg(state.lendFormState.lendMoney,t.UFix64), arg(expired,t.UInt64)],limit:limitNum});  // limitNum 9998
         console.log(res2);
         let res3 = await fcl.tx(res2).onceSealed();
         console.log(res3);
@@ -766,6 +727,46 @@ export default {
         console.error(error);
         state.confirmLendLoading = false;
       }
+    };
+
+    const rentInit = async () => {
+      console.log(state.user);
+      state._rentLoading = true;
+      state.rentDetails = [];
+      let res1 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(addressList[0],t.Address)]});
+      let res2 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(addressList[1],t.Address)]});
+      let res3 = await fcl.query({cadence: GET_IDS_WITH_PRICE,args: (arg,t) => [arg(addressList[2],t.Address)]});
+      let blockNum= await fcl.query({cadence: GET_BLOCK});
+      console.log(blockNum); //86123363
+
+      console.log(res1);
+      state._rentLoading = false;
+      Object.keys(res1).forEach(id=>{
+        state.rentDetails.push({ //19
+          id:id,
+          price: Object.keys(res1[id])[0], //1.0000 86984444
+          maxRentTime:formatDate(new Date(Math.round((res1[id][Object.keys(res1[id])[0]] - blockNum)) *1000 +new Date().getTime()), 'yyyy-MM-dd hh:mm'),
+          fromAddress:addressList[0]
+        })
+      })
+      Object.keys(res2).forEach(id=>{
+        state.rentDetails.push({
+          id:id,
+          price: Object.keys(res2[id])[0],
+          maxRentTime:formatDate(new Date(Math.round((res2[id][Object.keys(res2[id])[0]] - blockNum)) *1000 +new Date().getTime()), 'yyyy-MM-dd hh:mm'),
+          fromAddress:addressList[1]
+        })
+      })
+      Object.keys(res3).forEach(id=>{
+        state.rentDetails.push({
+          id:id,
+          price: Object.keys(res3[id])[0],
+          maxRentTime:formatDate(new Date(Math.round((res3[id][Object.keys(res3[id])[0]] - blockNum)) *1000 +new Date().getTime()), 'yyyy-MM-dd hh:mm'),
+          fromAddress:addressList[2]
+        })
+      })
+      console.log(res3);
+      console.log(state.rentDetails);
     };
 
     const rentItem = t => {
